@@ -7,6 +7,7 @@ import {
   doc,
   addDoc,
 } from "firebase/firestore";
+import { writeBatch } from "firebase/firestore"; // Import writeBatch
 import { setDoc} from "firebase/firestore";
 const AdminPage = () => {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -484,64 +485,59 @@ const handleRejectUser = async (user) => {
   };
 
 
+  
   const handleAnnouncementSend = async () => {
     if (!emailSubject || !emailBody || !recipientType) {
       console.error("Missing required data (subject, body, or recipient type).");
       alert("Please fill out all fields and select a recipient type.");
       return;
     }
-
-
+  
     try {
-      let selectedUsers = recipientType === "applicant" ? applicants : employers;
-
-
       // If there's an image file, upload it to Firebase Storage
       let imageUrl = '';
       if (imageFile) {
         const storageRef = ref(storage, `images/${imageFile.name}`);
         await uploadBytes(storageRef, imageFile);
-        imageUrl = await getDownloadURL(storageRef); // Get the URL of the uploaded image
+        imageUrl = await getDownloadURL(storageRef);
         console.log('Image URL:', imageUrl);
       }
-
-
-      // Create the email content with embedded image (if image was uploaded)
+  
       const emailContent = `
         <p>${emailBody}</p>
         ${imageUrl ? `<img src="${imageUrl}" alt="Attached Image" style="max-width: 100%; height: auto;" />` : ""}
       `;
-      
-      // Send notification to each selected user
-      for (const user of selectedUsers) {
-        const notificationsRef = collection(db, recipientType + "s", user.id, "notifications");
-
-
-        const newNotification = {
-          subject: emailSubject,
-          message: emailContent,
-          timestamp: new Date(),
-          status: "unread", // Initially unread
-        };
-
-
-        await addDoc(notificationsRef, newNotification);
-        console.log(`Notification added for ${recipientType}: `, user.id);
-      }
-
-
+  
+      const notificationsRef = collection(db, "announcement");
+      const timestamp = Date.now();
+  
+      const newNotification = {
+        subject: emailSubject,
+        message: emailContent,
+        timestamp: new Date(),
+        recipientType: recipientType, // "applicant" or "employer"
+        status: "unread",
+        imageUrl: imageUrl || null,
+        // Optionally include recipient IDs if needed
+        // recipients: (recipientType === "applicant" ? applicants : employers).map(user => user.id),
+      };
+  
+      const docId = `${recipientType}_${timestamp}`;
+      await setDoc(doc(notificationsRef, docId), newNotification);
+  
       alert("Announcement sent successfully!");
-
-
+  
       setEmailSubject("");
       setEmailBody("");
-      setImageFile(null); // Reset image file
+      setImageFile(null);
       setShowAnnouncement(false);
     } catch (error) {
       console.error("Error sending notification:", error);
       alert("Failed to send announcement.");
     }
-  };
+  };  
+  
+  
 
 
   const handleImageUpload = (e) => {
@@ -1374,7 +1370,7 @@ const handleRejectUser = async (user) => {
 
           <input
             type="text"
-            placeholder="Email Subject"
+            placeholder="Announcement Subject"
             value={emailSubject}
             onChange={(e) => setEmailSubject(e.target.value)}
             style={{
@@ -1385,7 +1381,7 @@ const handleRejectUser = async (user) => {
             }}
           />
           <textarea
-            placeholder="Email Body"
+            placeholder="Announcement Body"
             value={emailBody}
             onChange={(e) => setEmailBody(e.target.value)}
             rows="4"

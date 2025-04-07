@@ -810,11 +810,207 @@
 
 // export default NotificationPanel;
 
+// import React, { useState, useEffect } from "react";
+// import { db, auth } from "../firebase";
+// import { collection, getDocs, doc, query, updateDoc, orderBy } from "firebase/firestore";
+// import "bootstrap/dist/css/bootstrap.min.css";
+// import "../styles.css";
+
+// const NotificationPanel = () => {
+//   const [notifications, setNotifications] = useState({
+//     news: [],
+//     application: [],
+//   });
+//   const [activeTab, setActiveTab] = useState("news");
+//   const [expandedNotif, setExpandedNotif] = useState(null);
+
+//     useEffect(() => {
+//       const fetchNotifications = async () => {
+//         if (!auth.currentUser) return;
+    
+//         try {
+//           // 1. Personal Notifications
+//           const notificationsRef = collection(
+//             db,
+//             "applicants",
+//             auth.currentUser.uid,
+//             "notifications"
+//           );
+//           const q1 = query(notificationsRef);
+//           const querySnapshot1 = await getDocs(q1);
+    
+//           const personalNotifications = querySnapshot1.docs.map((doc) => ({
+//             id: doc.id,
+//             ...doc.data(),
+//           }));
+    
+//           // 2. Public Announcements
+//           const announcementRef = collection(db, "announcement");
+//           const q2 = query(announcementRef);
+//           const querySnapshot2 = await getDocs(q2);
+    
+//           const applicantAnnouncements = querySnapshot2.docs
+//             .map((doc) => ({
+//               id: doc.id,
+//               ...doc.data(),
+//             }))
+//             .filter((doc) => doc.recipientType === "applicant");
+    
+//           // 3. Set separate tabs
+//           setNotifications({
+//             application: personalNotifications.sort((a, b) => b.timestamp?.toDate() - a.timestamp?.toDate()),
+//             news: applicantAnnouncements.sort((a, b) => b.timestamp?.toDate() - a.timestamp?.toDate()),
+//           });
+//         } catch (error) {
+//           console.error("Error fetching notifications:", error);
+//         }
+//       };
+    
+//       fetchNotifications();
+//     }, []);
+  
+  
+
+//     const handleNotificationClick = async (notif) => {
+//       if (!auth.currentUser) return;
+    
+//       try {
+//         let notifDocRef;
+//         const tabKey = notif.recipientType === "applicant" ? "news" : "application";
+    
+//         if (notif.recipientType === "applicant") {
+//           notifDocRef = doc(db, "announcement", notif.id);
+//         } else {
+//           notifDocRef = doc(
+//             db,
+//             "applicants",
+//             auth.currentUser.uid,
+//             "notifications",
+//             notif.id
+//           );
+//         }
+    
+//         await updateDoc(notifDocRef, { status: "read" });
+//         setExpandedNotif(expandedNotif === notif.id ? null : notif.id);
+    
+//         setNotifications((prev) => ({
+//           ...prev,
+//           [tabKey]: prev[tabKey].map((n) =>
+//             n.id === notif.id ? { ...n, status: "read" } : n
+//           ),
+//         }));
+//       } catch (error) {
+//         console.error("Error updating notification status:", error);
+//       }
+//     };
+    
+  
+//   return (
+//     <div className="notification-page">
+//       <div className="notification-top">
+//         <h2 style={{margin: "25px"}}>Notifications</h2>
+
+//         <div className="tabs">
+//           {Object.keys(notifications).map((tab) => (
+//             <button
+//               key={tab}
+//               className={`tab-button ${activeTab === tab ? "active" : ""}`}
+//               onClick={() => setActiveTab(tab)}
+//             >
+//               {tab.charAt(0).toUpperCase() + tab.slice(1)}
+//             </button>
+//           ))}
+//         </div>
+
+//         <div className="notification-content">
+//   <ul>
+//     {notifications[activeTab].length > 0 ? (
+//       <>
+//         {/* Personal Notifications */}
+//         {notifications[activeTab].some((notif) => !notif.recipientType) && (
+//           <>
+//             <li className="notif-section-title">📬 Your Notifications</li>
+//             {notifications[activeTab]
+//               .filter((notif) => !notif.recipientType)
+//               .map((notif) => (
+//                 <li
+//                   key={notif.id}
+//                   className={`notification-item ${notif.status === "unread" ? "unread" : "read"}`}
+//                   onClick={() => handleNotificationClick(notif)}
+//                 >
+//                   <div className="notif-header">
+//                     <strong>{notif.companyName}</strong>
+//                     {notif.status === "unread" && (
+//                       <span className="badge">New 🔥</span>
+//                     )}
+//                   </div>
+
+//                   {expandedNotif === notif.id && (
+//                     <div className="notif-details">
+//                       <p><strong>Subject:</strong> {notif.subject}</p>
+//                       <p>{notif.message}</p>
+//                       <p className="timestamp">
+//                         <strong>Received:</strong> {notif.timestamp?.toDate().toLocaleString()}
+//                       </p>
+//                     </div>
+//                   )}
+//                 </li>
+//               ))}
+//           </>
+//         )}
+
+//         {/* Announcements */}
+//         {notifications[activeTab].some((notif) => notif.recipientType === "applicant") && (
+//           <>
+//             <li className="notif-section-title">📢 Announcements from Admin</li>
+//             {notifications[activeTab]
+//               .filter((notif) => notif.recipientType === "applicant")
+//               .map((notif) => (
+//                 <li
+//                   key={notif.id}
+//                   className={`notification-item ${notif.status === "unread" ? "unread" : "read"}`}
+//                   onClick={() => handleNotificationClick(notif)}
+//                 >
+//                   <div className="notif-header">
+//                     <strong>Admin</strong>
+//                     {notif.status === "unread" && (
+//                       <span className="badge">New 📣</span>
+//                     )}
+//                   </div>
+
+//                   {expandedNotif === notif.id && (
+//                     <div className="notif-details">
+//                       <p><strong>Subject:</strong> {notif.subject}</p>
+//                       <p dangerouslySetInnerHTML={{ __html: notif.message }} />
+//                       <p className="timestamp">
+//                         <strong>Posted:</strong> {notif.timestamp?.toDate().toLocaleString()}
+//                       </p>
+//                     </div>
+//                   )}
+//                 </li>
+//               ))}
+//           </>
+//         )}
+//       </>
+//     ) : (
+//       <li className="empty">No new notifications.</li>
+//     )}
+//   </ul>
+// </div>
+
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default NotificationPanel;
+
 import React, { useState, useEffect } from "react";
 import { db, auth } from "../firebase";
-import { collection, getDocs, doc, query, updateDoc, orderBy } from "firebase/firestore";
+import { collection, getDocs, doc, query, updateDoc } from "firebase/firestore";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles.css";
+
 
 const NotificationPanel = () => {
   const [notifications, setNotifications] = useState({
@@ -823,57 +1019,86 @@ const NotificationPanel = () => {
   });
   const [activeTab, setActiveTab] = useState("news");
   const [expandedNotif, setExpandedNotif] = useState(null);
+  const [userType, setUserType] = useState(null); // New state to track user role
 
   useEffect(() => {
     const fetchNotifications = async () => {
       if (!auth.currentUser) return;
-
+  
       try {
-        const notificationsRef = collection(
-          db,
-          "applicants",
-          auth.currentUser.uid,
-          "notifications"
-        );
-
-        const q = query(notificationsRef);
-        const querySnapshot = await getDocs(q);
-
-        // Sort by timestamp (newest first)
-        const fetchedNotifications = querySnapshot.docs
+        const uid = auth.currentUser.uid;
+        const applicantDoc = doc(db, "applicants", uid);
+        const employerDoc = doc(db, "employers", uid);
+  
+        const [applicantSnap, employerSnap] = await Promise.all([
+          getDocs(collection(applicantDoc, "notifications")),
+          getDocs(collection(employerDoc, "notifications")), // Now using the notifications subcollection for employers
+        ]);
+  
+        const isEmployer = employerSnap.size > 0 || (await getDocs(employerDoc)).exists;
+        setUserType(isEmployer ? "employer" : "applicant");
+  
+        let applicationNotifications = [];
+  
+        if (!isEmployer) {
+          // Only fetch application notifications for applicants
+          applicationNotifications = applicantSnap.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+        } else {
+          // EMPLOYER: Fetch notifications from the employer's notifications subcollection
+          applicationNotifications = employerSnap.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+        }
+  
+        const announcementSnapshot = await getDocs(collection(db, "announcement"));
+        const relevantAnnouncements = announcementSnapshot.docs
           .map((doc) => ({
             id: doc.id,
             ...doc.data(),
           }))
-          .sort((a, b) => b.timestamp?.toDate() - a.timestamp?.toDate());
-
-        setNotifications((prev) => ({
-          ...prev,
-          application: fetchedNotifications,
-        }));
+          .filter((doc) => doc.recipientType === (isEmployer ? "employer" : "applicant"));
+  
+        setNotifications({
+          application: applicationNotifications.sort(
+            (a, b) => b.timestamp?.toDate() - a.timestamp?.toDate()
+          ),
+          news: relevantAnnouncements.sort(
+            (a, b) => b.timestamp?.toDate() - a.timestamp?.toDate()
+          ),
+        });
       } catch (error) {
         console.error("Error fetching notifications:", error);
       }
     };
-
+  
     fetchNotifications();
   }, []);
+  
 
   const handleNotificationClick = async (notif) => {
     if (!auth.currentUser) return;
 
     try {
-      const notifDocRef = doc(db, "applicants", auth.currentUser.uid, "notifications", notif.id);
+      let notifDocRef;
+      const tabKey = notif.recipientType ? "news" : "application";
 
-      // Update notification status to "read"
+      if (notif.recipientType) {
+        notifDocRef = doc(db, "announcement", notif.id);
+      } else {
+        const path = userType === "employer" ? "employers" : "applicants";
+        notifDocRef = doc(db, path, auth.currentUser.uid, "notifications", notif.id);
+      }
+
       await updateDoc(notifDocRef, { status: "read" });
-
       setExpandedNotif(expandedNotif === notif.id ? null : notif.id);
 
-      // Update state to reflect status change
       setNotifications((prev) => ({
         ...prev,
-        application: prev.application.map((n) =>
+        [tabKey]: prev[tabKey].map((n) =>
           n.id === notif.id ? { ...n, status: "read" } : n
         ),
       }));
@@ -881,11 +1106,11 @@ const NotificationPanel = () => {
       console.error("Error updating notification status:", error);
     }
   };
-
+ 
   return (
     <div className="notification-page">
       <div className="notification-top">
-        <h2 style={{margin: "25px"}}>Notifications</h2>
+        <h2 style={{ margin: "25px" }}>Notifications</h2>
 
         <div className="tabs">
           {Object.keys(notifications).map((tab) => (
@@ -902,30 +1127,73 @@ const NotificationPanel = () => {
         <div className="notification-content">
           <ul>
             {notifications[activeTab].length > 0 ? (
-              notifications[activeTab].map((notif) => (
-                <li
-                  key={notif.id}
-                  className={`notification-item ${notif.status === "unread" ? "unread" : "read"}`}
-                  onClick={() => handleNotificationClick(notif)}
-                >
-                  <div className="notif-header">
-                    <strong>{notif.companyName}</strong>
-                    {notif.status === "unread" && (
-                      <span className="badge">New 🔥</span>
-                    )}
-                  </div>
+              <>
+                {/* Personal Notifications */}
+                {notifications[activeTab].some((notif) => !notif.recipientType) && (
+                  <>
+                    <li className="notif-section-title">📬 Your Notifications</li>
+                    {notifications[activeTab]
+                      .filter((notif) => !notif.recipientType)
+                      .map((notif) => (
+                        <li
+                          key={notif.id}
+                          className={`notification-item ${notif.status === "unread" ? "unread" : "read"}`}
+                          onClick={() => handleNotificationClick(notif)}
+                        >
+                          <div className="notif-header">
+                            <strong>{notif.companyName || "System"}</strong>
+                            {notif.status === "unread" && (
+                              <span className="badge">New 🔥</span>
+                            )}
+                          </div>
 
-                  {expandedNotif === notif.id && (
-                    <div className="notif-details">
-                      <p><strong>Subject:</strong> {notif.subject}</p>
-                      <p>{notif.message}</p>
-                      <p className="timestamp">
-                        <strong>Received:</strong> {notif.timestamp?.toDate().toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                </li>
-              ))
+                          {expandedNotif === notif.id && (
+                            <div className="notif-details">
+                              <p><strong>Subject:</strong> {notif.subject}</p>
+                              <p>{notif.message}</p>
+                              <p className="timestamp">
+                                <strong>Received:</strong> {notif.timestamp?.toDate().toLocaleString()}
+                              </p>
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                  </>
+                )}
+
+                {/* Announcements */}
+                {notifications[activeTab].some((notif) => notif.recipientType) && (
+                  <>
+                    <li className="notif-section-title">📢 Announcements from Admin</li>
+                    {notifications[activeTab]
+                      .filter((notif) => notif.recipientType)
+                      .map((notif) => (
+                        <li
+                          key={notif.id}
+                          className={`notification-item ${notif.status === "unread" ? "unread" : "read"}`}
+                          onClick={() => handleNotificationClick(notif)}
+                        >
+                          <div className="notif-header">
+                            <strong>Admin</strong>
+                            {notif.status === "unread" && (
+                              <span className="badge">New 📣</span>
+                            )}
+                          </div>
+
+                          {expandedNotif === notif.id && (
+                            <div className="notif-details">
+                              <p><strong>Subject:</strong> {notif.subject}</p>
+                              <p dangerouslySetInnerHTML={{ __html: notif.message }} />
+                              <p className="timestamp">
+                                <strong>Posted:</strong> {notif.timestamp?.toDate().toLocaleString()}
+                              </p>
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                  </>
+                )}
+              </>
             ) : (
               <li className="empty">No new notifications.</li>
             )}
@@ -937,4 +1205,3 @@ const NotificationPanel = () => {
 };
 
 export default NotificationPanel;
-

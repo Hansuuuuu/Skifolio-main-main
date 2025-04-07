@@ -396,7 +396,22 @@ const ApplicantProfile = () => {
                                         ))}
                                     </div>
                                 ) : (
-                                    <p>No certificates for {skill}</p>
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        minHeight: '60px',
+                                    }}>
+                                        <p style={{
+                                            fontSize: '16px',
+                                            color: '#777',
+                                            textAlign: 'center',
+                                            fontStyle: 'italic',
+                                            margin: 0
+                                        }}>
+                                            No certificates for {skill}
+                                        </p>
+                                    </div>
                                 )}
                             </div>
                 ))}

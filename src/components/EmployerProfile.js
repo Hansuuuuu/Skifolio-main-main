@@ -85,7 +85,7 @@ const EmployerProfile = () => {
     const handleJobClick = (job) => {
         setSelectedJob(job.id);
     };
-
+    
     const handleApplicantClick = (applicant) => {
         setSelectedApplicant(applicant);
     };
