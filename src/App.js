@@ -17,7 +17,9 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import AdminPage from './components/AdminPage';
 import NotificationPanel from './components/Notifications';
 import Homepage from './components/Homepage';
-
+import Scouting from './components/Scouting';
+import EmployerSkillFilter from './components/EmployerSkillFilter';
+import AboutUs from './components/AboutUs';
 const App = () => {
     const [userType, setUserType] = useState(null);
     const [user, setUser] = useState(null);
@@ -55,6 +57,9 @@ const App = () => {
                 <Route path="/home" element={<HomeFeed />} />
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/Notifications" element={<NotificationPanel />} />
+                <Route path="/discovered" element={<Scouting />} />
+                <Route path="/filter" element={<EmployerSkillFilter />} />
+                <Route path="/about-us" element={<AboutUs/>} />
 
             </Routes>
         </Router>

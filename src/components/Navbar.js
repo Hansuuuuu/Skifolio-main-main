@@ -224,6 +224,12 @@ const Navbar = ({ userType, onLogout }) => {
                     <span>Notifications</span>
                   </Link>
                 </li>
+                <li className="nav-item">
+                  <Link className="nav-link" to="/filter">
+                    <FaEye />
+                    <span>Discover</span>
+                  </Link>
+                </li>
               </>
             )}
             <li className="nav-item">

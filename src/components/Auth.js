@@ -972,7 +972,7 @@ const Auth = ({ userType, setUser }) => {
                     <button type="submit" className="input submit">{isSignUp ? 'Sign Up' : 'Sign In'}</button>
 
                     {!isSignUp && (
-                        <button type="button" onClick={handleForgotPassword} style={{ background: 'none', border: 'none', color: 'blue', cursor: 'pointer', marginTop: '10px' }}>
+                        <button type="button" onClick={handleForgotPassword} style={{ background: 'none', border: 'none', color: 'blue', cursor: 'pointer', marginTop: '10px' ,}}>
                             Forgot Password?
                         </button>
                     )}

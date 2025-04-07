@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { db } from "../firebase";
+import { db, storage } from "../firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   deleteDoc,
   doc,
@@ -24,12 +25,73 @@ const AdminPage = () => {
   const [pendingJobs, setPendingJobs] = useState([]);
   const [isUserClassVisible, setIsUserClassVisible] = useState(true)
   const [isUserApproval, setUserApproval] = useState(true)
+  const [historyVisible, setHistoryVisible] = useState(true);
+  const [historyData, setHistoryData] = useState([]);
+  const [sendNotif, setSendNotification] =  useState(false);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [recipientType, setRecipientType] = useState(null);
+  const [imageFile, setImageFile] = useState(null); // Define the state for the image file
 
-  const [announcements, setAnnouncements] = useState([]);
-    const [newAnnouncement, setNewAnnouncement] = useState('');
+
+  // const [announcements, setAnnouncements] = useState([]);
+  // const [newAnnouncement, setNewAnnouncement] = useState('');
     const [activeTab, setActiveTab] = useState('manageUsers');
 
+
+  // Function to add history record with a timestamp
+  const addHistoryRecord = async (event, details) => {
+    const timestamp = new Date().toISOString(); // Get current timestamp
+    setHistoryData((prevHistory) => [
+      ...prevHistory,
+      { timestamp, event, details },
+    ]);
+
+
+    try {
+      // Add the new record to Firestore
+      const historyDocRef = await addDoc(collection(db, "historyData"), {
+        timestamp,
+        event,
+        details,
+      });
+    } catch (error) {
+      console.error("Error adding history record: ", error);
+    }
+  };
   
+  // Fetch applicants and employers from Firestore
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        // Fetch applicants
+        const applicantsSnapshot = await getDocs(collection(db, "applicants"));
+        const applicantsData = applicantsSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+
+        // Fetch employers
+        const employersSnapshot = await getDocs(collection(db, "employers"));
+        const employersData = employersSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+
+        setApplicants(applicantsData);
+        setEmployers(employersData);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      }
+    };
+
+
+    fetchUsers();
+  }, []);
+
+
   // Fetch Applicants
   useEffect(() => {
     const fetchApplicants = async () => {
@@ -103,6 +165,8 @@ const AdminPage = () => {
     // }
     setIsUserClassVisible(true);
     setUserApproval(false);
+    setHistoryVisible(false);
+    setShowAnnouncement(false);
   };
   const handleToggleApproval = () => {
     // // Only toggle visibility if selectedUserType is "Applicants" or "Employers"
@@ -125,6 +189,7 @@ const AdminPage = () => {
 const [usersToApprove, setUsersToApprove] = useState([]);
 const [deletedFiles, setDeletedFiles] = useState([]);
 const [showDeletedFiles, setShowDeletedFiles] = useState(false); // Toggle for deleted files view
+const [announcementVisible, setShowAnnouncement] = useState(false);
 
 
 useEffect(() => {
@@ -167,6 +232,39 @@ if (showDeletedFiles) fetchDeletedFiles();
 }, [showDeletedFiles]); 
 
 
+// useEffect(() => {
+//   const fetchHistoryData = async () => {
+//     try {
+//       const snapshot = await getDocs(collection(db, "historyData"));
+//       const history = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+//       setHistoryData(history);
+//     } catch (error) {
+//         console.error("Error fetching history data: ",error);
+//     }
+//   };
+//   if (historyVisible) fetchHistoryData();
+// }, [historyVisible]);
+useEffect(() =>{
+const fetchHistoryData = async () => {
+  try {
+    const snapshot = await getDocs(collection(db, "historyData"));
+    const history = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      const timestamp = data.timestamp; // Assuming your field is named 'timestamp'
+      if (timestamp) {
+        data.timestamp = timestamp.toDate().toLocaleString(); // Convert timestamp to readable date
+      }
+      return { id: doc.id, ...data };
+    });
+    setHistoryData(history);
+  } catch (error) {
+    console.error("Error fetching history data: ", error);
+  }
+};
+if (historyVisible) fetchHistoryData();
+}, [historyVisible]);
+
+
 // Approve User
 const handleApproveUser = async (user) => {
     try {
@@ -184,6 +282,11 @@ const handleApproveUser = async (user) => {
         // Update local state
         setUsersToApprove(usersToApprove.filter((u) => u.id !== user.id));
         alert("User approved successfully.");
+
+
+        await addHistoryRecord('User Approved', `User ${user.id} approved.`); // Add history record with timestamp
+
+
     } catch (error) {
         console.error("Error approving user:", error);
         alert("Failed to approve user. Please try again.");
@@ -205,6 +308,11 @@ const handleRejectUser = async (user) => {
         // Update local state
         setUsersToApprove(usersToApprove.filter((u) => u.id !== user.id));
         alert("User rejected and moved to deleted files.");
+
+
+        await addHistoryRecord('User Rejected', `User ${user.id} rejected.`); // Add history record with timestamp
+
+
     } catch (error) {
         console.error("Error rejecting user:", error);
         alert("Failed to reject user. Please try again.");
@@ -330,6 +438,11 @@ const handleRejectUser = async (user) => {
       setPendingJobs(pendingJobs.filter((j) => j.id !== job.id));
       setSelectedJob(null);
       alert("Job published successfully.");
+
+
+      await addHistoryRecord('Job Published', `Job post #${job.id} published.`); // Add history record with timestamp
+
+
     } catch (error) {
       console.error("Error publishing job:", error);
       alert("Failed to publish job. Please try again.");
@@ -346,6 +459,9 @@ const handleRejectUser = async (user) => {
       setPendingJobs(pendingJobs.filter((j) => j.id !== jobId));
       setSelectedJob(null);
       alert("Job rejected successfully.");
+
+
+      await addHistoryRecord('Job Post Rejected',  `Job post #${jobId} rejected.` );
     } catch (error) {
       console.error("Error rejecting job:", error);
       alert("Failed to reject job. Please try again.");
@@ -365,6 +481,74 @@ const handleRejectUser = async (user) => {
 
   const toggleUserDivClass = () => {
     setSelectedUserType(selectedUserType === "JobsToBeApproved" ? "Applicants" : "JobsToBeApproved");
+  };
+
+
+  const handleAnnouncementSend = async () => {
+    if (!emailSubject || !emailBody || !recipientType) {
+      console.error("Missing required data (subject, body, or recipient type).");
+      alert("Please fill out all fields and select a recipient type.");
+      return;
+    }
+
+
+    try {
+      let selectedUsers = recipientType === "applicant" ? applicants : employers;
+
+
+      // If there's an image file, upload it to Firebase Storage
+      let imageUrl = '';
+      if (imageFile) {
+        const storageRef = ref(storage, `images/${imageFile.name}`);
+        await uploadBytes(storageRef, imageFile);
+        imageUrl = await getDownloadURL(storageRef); // Get the URL of the uploaded image
+        console.log('Image URL:', imageUrl);
+      }
+
+
+      // Create the email content with embedded image (if image was uploaded)
+      const emailContent = `
+        <p>${emailBody}</p>
+        ${imageUrl ? `<img src="${imageUrl}" alt="Attached Image" style="max-width: 100%; height: auto;" />` : ""}
+      `;
+      
+      // Send notification to each selected user
+      for (const user of selectedUsers) {
+        const notificationsRef = collection(db, recipientType + "s", user.id, "notifications");
+
+
+        const newNotification = {
+          subject: emailSubject,
+          message: emailContent,
+          timestamp: new Date(),
+          status: "unread", // Initially unread
+        };
+
+
+        await addDoc(notificationsRef, newNotification);
+        console.log(`Notification added for ${recipientType}: `, user.id);
+      }
+
+
+      alert("Announcement sent successfully!");
+
+
+      setEmailSubject("");
+      setEmailBody("");
+      setImageFile(null); // Reset image file
+      setShowAnnouncement(false);
+    } catch (error) {
+      console.error("Error sending notification:", error);
+      alert("Failed to send announcement.");
+    }
+  };
+
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file); // Store the selected image
+    }
   };
   
   
@@ -448,6 +632,7 @@ const handleRejectUser = async (user) => {
     <><div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
       <h2>Admin Page</h2>
 
+
       <button
       onClick={() => {
         // Example log-out logic: remove user data or session
@@ -482,6 +667,8 @@ const handleRejectUser = async (user) => {
             setIsUserClassVisible(false);
             setUserApproval(false);
             setShowDeletedFiles(false);
+            setHistoryVisible(false);
+            setShowAnnouncement(false);
           }}
           
           style={{
@@ -502,6 +689,8 @@ const handleRejectUser = async (user) => {
             setIsUserClassVisible(false);
             setUserApproval(false);
             setShowDeletedFiles(false);
+            setHistoryVisible(false);
+            setShowAnnouncement(false);
         }}
           style={{
             padding: "10px 15px",
@@ -520,7 +709,7 @@ const handleRejectUser = async (user) => {
               marginLeft:"10px",
               marginRight: "10px",
               padding: "10px 15px",
-              backgroundColor: isUserClassVisible ? "#007bff" : "#ddd",
+              backgroundColor: isUserClassVisible && !isUserApproval && !historyVisible ? "#007bff" : "#ddd",
               color: "#fff",
               border: "none",
               borderRadius: "5px",
@@ -534,12 +723,14 @@ const handleRejectUser = async (user) => {
             setUserApproval(true);
             setShowDeletedFiles(false); 
             setIsUserClassVisible(false);
-            setSelectedUserType(false)
+            setSelectedUserType(false);
+            setHistoryVisible(false);
+            setShowAnnouncement(false);
         }}
           style={{
             marginRight: "10px" , 
             padding: "10px 15px",
-            backgroundColor: isUserApproval ? "#007bff" : "#ddd",
+            backgroundColor: isUserApproval && !historyVisible ? "#007bff" : "#ddd",
             color: "#fff",
             border: "none",
             borderRadius: "5px",
@@ -556,6 +747,8 @@ const handleRejectUser = async (user) => {
             setUserApproval(false); 
             setIsUserClassVisible(false);
             setSelectedUserType("");
+            setHistoryVisible(false);
+            setShowAnnouncement(false);
         }}
           style={{
             padding: "10px 15px",
@@ -568,11 +761,59 @@ const handleRejectUser = async (user) => {
         >
           View Deleted Files
         </button>
+
+
+        {/* History Button */}
+        <button
+          onClick={() => {
+            setHistoryVisible(true);
+            setShowDeletedFiles(false);
+            setUserApproval(false); 
+            setIsUserClassVisible(false);
+            setSelectedUserType("");
+            setShowAnnouncement(false);
+          }}
+          style={{
+            marginLeft: "10px",
+            padding: "10px 15px",
+            backgroundColor: historyVisible ? "#007bff" : "#ddd", // green color for history
+            color: "#fff",
+            border: "none",
+            borderRadius: "5px",
+            cursor: "pointer",
+          }}
+        >
+          History
+        </button>
+
+
+        {/* Announcement Button */}
+        <button
+          onClick={() => {
+            setShowAnnouncement(true);
+            setHistoryVisible(false);
+            setShowDeletedFiles(false);
+            setUserApproval(false); 
+            setIsUserClassVisible(false);
+            setSelectedUserType("");
+          }}
+          style={{
+            marginLeft: "10px",
+            padding: "10px 15px",
+            backgroundColor: announcementVisible ? "#007bff" : "#ddd", // green color for history
+            color: "#fff",
+            border: "none",
+            borderRadius: "5px",
+            cursor: "pointer",
+          }}
+        >
+          Announcement
+        </button>
     </div>
 
 
       {/* User Table */}
-      {!isUserClassVisible && !isUserApproval && !showDeletedFiles && (
+      {!isUserClassVisible && !isUserApproval && !showDeletedFiles && !historyVisible && !announcementVisible &&(
       <div className="user" style={{ border: "1px solid #ddd", borderRadius: "5px", padding: "20px" }}>
         <h3>{selectedUserType}</h3>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -1004,7 +1245,7 @@ const handleRejectUser = async (user) => {
 
 
       {/* View User Acconts To Be Approve Section */}
-      {!showDeletedFiles && !isUserClassVisible && !selectedUserType && (
+      {!showDeletedFiles && !isUserClassVisible && !selectedUserType && !historyVisible && !announcementVisible &&(
         <div  style={{ border: "1px solid #ddd", borderRadius: "5px", padding: "20px", fontFamily: "Arial, sans-serif" }}>
             <h3>Users Pending Approval</h3>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -1059,7 +1300,7 @@ const handleRejectUser = async (user) => {
         </div>
     )}
     {/* Archives Section */}
-    {showDeletedFiles && !selectedUserType && !isUserClassVisible && (
+    {showDeletedFiles && !selectedUserType && !isUserClassVisible && !historyVisible && !announcementVisible &&(
         <div  style={{ border: "1px solid #ddd", borderRadius: "5px", padding: "20px", fontFamily: "Arial, sans-serif" }}>
             <h3>Deleted Files</h3>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -1084,6 +1325,132 @@ const handleRejectUser = async (user) => {
             </table>
         </div>
     )}
+
+
+{historyVisible && !isUserApproval && !showDeletedFiles && !selectedUserType && !isUserClassVisible && !announcementVisible && (
+        <div style={{  border: "1px solid #ddd", borderRadius: "5px", padding: "20px" }}>
+          <h3>History</h3>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={{ border: "1px solid #ddd", padding: "10px" }}>Timestamp</th>
+                <th style={{ border: "1px solid #ddd", padding: "10px" }}>Event</th>
+                <th style={{ border: "1px solid #ddd", padding: "10px" }}>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {historyData.map((record, index) => (
+                <tr key={index}>
+                  <td style={{ border: "1px solid #ddd", padding: "10px" }}>{record.timestamp}</td>
+                  <td style={{ border: "1px solid #ddd", padding: "10px" }}>{record.event}</td>
+                  <td style={{ border: "1px solid #ddd", padding: "10px" }}>{record.details}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+
+      {/* Announcement tab */}
+      {announcementVisible && !historyVisible && !isUserApproval && !showDeletedFiles && !selectedUserType && !isUserClassVisible && (
+        <div
+          style={{
+            marginTop: "20px",
+            marginLeft: "auto",
+            marginRight: "auto",
+            padding: "10px 20px",
+            border: "1px solid #ddd",
+            borderRadius: "5px",
+            backgroundColor: "#f9f9f9",
+            maxWidth: "1200px",
+            width: "90%",
+            textAlign: "center",
+          }}
+        >
+          <h3>Announcement</h3>
+          <p>This is for important announcement!</p>
+
+
+          <input
+            type="text"
+            placeholder="Email Subject"
+            value={emailSubject}
+            onChange={(e) => setEmailSubject(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px',
+              marginBottom: '10px',
+              borderRadius: '5px',
+            }}
+          />
+          <textarea
+            placeholder="Email Body"
+            value={emailBody}
+            onChange={(e) => setEmailBody(e.target.value)}
+            rows="4"
+            style={{
+              width: '100%',
+              padding: '10px',
+              borderRadius: '5px',
+              marginBottom: '10px',
+            }}
+          />
+
+
+          <div>
+          <label htmlFor="image-upload" style={{ marginBottom: '10px', display: 'block' }}>
+            Upload Image:
+          </label>
+          <input
+            type="file"
+            id="image-upload"
+            accept="image/*"
+            onChange={handleImageUpload}
+            style={{ marginBottom: '10px' }}
+          />
+        </div>
+
+
+          {/* Recipient Dropdown */}
+          <div style={{ marginTop: "10px" }}>
+            <label>
+              Select Recipient Type:
+              <select
+                value={recipientType || ""}
+                onChange={(e) => setRecipientType(e.target.value)}
+                style={{
+                  marginLeft: "10px",
+                  padding: "8px",
+                  borderRadius: "5px",
+                  fontSize: "16px",
+                }}
+              >
+                <option value="">Select Recipient</option>
+                <option value="applicant">Applicant</option>
+                <option value="employer">Employer</option>
+              </select>
+            </label>
+          </div>
+
+
+          <button
+            onClick={handleAnnouncementSend}
+            style={{
+              marginTop: "20px",
+              padding: "10px 20px",
+              backgroundColor: "#28a745",
+              color: "#fff",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer",
+            }}
+          >
+            Send Announcement
+          </button>
+        </div>
+      )}
+
 
 
     </>
